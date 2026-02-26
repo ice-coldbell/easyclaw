@@ -1,0 +1,23 @@
+[package]
+name = "order-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Perp DEX order and execution engine"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "order_engine"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
+market-registry = { path = "../market_registry", features = ["cpi"] }
+lp-vault = { path = "../lp_vault", features = ["cpi"] }

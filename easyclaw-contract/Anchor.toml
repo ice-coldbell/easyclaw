@@ -1,0 +1,22 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+lp_vault = "7A7BCZChVprUa3WBbC7mER54E7BVGA7PussRB8fHC5tz"
+market_registry = "Gswa2NzGEuUeM5MekCTJ9rLyzsocW1FENHue5f3uiDr7"
+order_engine = "7zpq5Xg74SEX1NchVzQXgG3JEFmHhnBJzFR9LXGuaBSj"
+usdc_faucet = "C94QPEetRNiB2pSQ8ZsYM8euZbKRmsTnwgDy1bTEjr1m"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm run test:ts"

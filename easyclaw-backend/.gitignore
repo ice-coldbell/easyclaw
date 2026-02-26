@@ -1,0 +1,17 @@
+/bin/
+/tmp/
+/data/*.sqlite
+/data/*.sqlite-journal
+/data/*.sqlite-shm
+/data/*.sqlite-wal
+/.docker/*
+!/.docker/.gitkeep
+!/.docker/api-server/.gitkeep
+!/.docker/indexer/.gitkeep
+!/.docker/keeper/.gitkeep
+/.local/*
+!/.local/.gitkeep
+!/.local/log/.gitkeep
+
+config
+.local

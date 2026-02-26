@@ -1,0 +1,29 @@
+{
+  "name": "easyclaw-contract",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "anchor build",
+    "deploy:devnet": "bash scripts/deploy_devnet.sh",
+    "test": "anchor test",
+    "test:ts": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
+    "bootstrap": "tsx scripts/bootstrap.ts",
+    "fund:lp": "tsx scripts/fund_lp.ts",
+    "qa:workflow": "tsx scripts/qa_workflow.ts",
+    "faucet": "tsx scripts/faucet.ts"
+  },
+  "devDependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.9",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^22.10.2",
+    "chai": "^4.4.1",
+    "dotenv": "^16.4.7",
+    "mocha": "^10.7.3",
+    "ts-mocha": "^10.0.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
+}

@@ -1,0 +1,41 @@
+name: easyclaw-backend
+
+services:
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: easyclaw-backend:local
+    command: ["/app/bin/api-server"]
+    environment:
+      CONFIG_PHASE: docker
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/app/config:ro
+      - ./.docker/api-server:/app/.docker/api-server
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  indexer:
+    image: easyclaw-backend:local
+    command: ["/app/bin/indexer"]
+    environment:
+      CONFIG_PHASE: docker
+    volumes:
+      - ./config:/app/config:ro
+      - ./.docker/indexer:/app/.docker/indexer
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  keeper:
+    image: easyclaw-backend:local
+    command: ["/app/bin/keeper"]
+    environment:
+      CONFIG_PHASE: docker
+    volumes:
+      - ./config:/app/config:ro
+      - ./.docker/keeper:/app/.docker/keeper
+      - ${HOME}/.config/solana/id.json:/app/.docker/keeper/id.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
