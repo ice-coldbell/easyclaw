@@ -1,6 +1,32 @@
 ---
 name: easyclaw-skill
 description: Run user-facing EasyClaw DEX actions from a self-contained skill folder. Use when an agent needs to submit user orders or check wallet/margin/order balances on EasyClaw without depending on external project directories.
+version: 0.1.0
+metadata:
+  openclaw:
+    homepage: https://github.com/ice-coldbell/easyclaw/tree/main/easyclaw-skill
+    requires:
+      env:
+        - SOLANA_RPC_URL
+        - ANCHOR_PROVIDER_URL
+        - KEYPAIR_PATH
+        - ANCHOR_WALLET
+        - EASYCLAW_API_BASE_URL
+        - EASYCLAW_WS_URL
+        - EASYCLAW_API_TOKEN
+        - ORDER_ENGINE_PROGRAM_ID
+        - MARKET_REGISTRY_PROGRAM_ID
+        - API_BASE_URL
+        - BACKEND_WS_URL
+        - WS_URL
+        - API_AUTH_TOKEN
+        - API_TOKEN
+      bins:
+        - node
+        - npm
+      config:
+        - ~/.config/solana/id.json
+    primaryEnv: KEYPAIR_PATH
 ---
 
 # EasyClaw User DEX Skill
@@ -14,6 +40,17 @@ Run only user workflows:
 - realtime websocket monitoring and signal-driven auto order execution
 
 Do not run admin/bootstrap/keeper workflows in this skill.
+
+## Runtime & Credential Requirements
+
+- Wallet signer source: `KEYPAIR_PATH` or `ANCHOR_WALLET` (fallback `~/.config/solana/id.json`).
+- Solana RPC source: `SOLANA_RPC_URL` or `ANCHOR_PROVIDER_URL` (fallback `http://127.0.0.1:8899`).
+- Backend endpoint source: `EASYCLAW_API_BASE_URL` / `EASYCLAW_WS_URL` (or alias vars in `backend-common.js`).
+- Optional API credential: `EASYCLAW_API_TOKEN` (required for protected backend controls).
+- Local process usage: onboarding probes `solana config get` and can spawn child Node.js processes for autotrade execution.
+- Local file writes:
+  - onboarding persists selected wallet envs into `easyclaw-skill/.env`
+  - strategy onboarding writes files into `easyclaw-skill/state/strategies/`
 
 ## Command Interface
 

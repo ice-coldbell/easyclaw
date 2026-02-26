@@ -56,6 +56,9 @@ type IndexerConfig struct {
 	RPCURL                    string
 	Commitment                rpc.CommitmentType
 	PollInterval              time.Duration
+	RPCMaxRetries             int
+	RPCRetryBaseDelay         time.Duration
+	RPCRetryMaxDelay          time.Duration
 	DBDSN                     string
 	OrderEngineProgramID      solana.PublicKey
 	MarketRegistryProgramID   solana.PublicKey
@@ -217,6 +220,21 @@ func LoadIndexerConfig() (IndexerConfig, error) {
 	if err != nil {
 		return IndexerConfig{}, err
 	}
+	rpcMaxRetries, err := envInt("INDEXER_RPC_MAX_RETRIES", 6)
+	if err != nil {
+		return IndexerConfig{}, err
+	}
+	rpcRetryBaseDelay, err := envDuration("INDEXER_RPC_RETRY_BASE_DELAY", time.Second)
+	if err != nil {
+		return IndexerConfig{}, err
+	}
+	rpcRetryMaxDelay, err := envDuration("INDEXER_RPC_RETRY_MAX_DELAY", 20*time.Second)
+	if err != nil {
+		return IndexerConfig{}, err
+	}
+	if rpcRetryMaxDelay < rpcRetryBaseDelay {
+		return IndexerConfig{}, fmt.Errorf("invalid INDEXER_RPC_RETRY_MAX_DELAY: must be >= INDEXER_RPC_RETRY_BASE_DELAY")
+	}
 
 	commitment, err := envCommitment("SOLANA_COMMITMENT", rpc.CommitmentConfirmed)
 	if err != nil {
@@ -271,6 +289,9 @@ func LoadIndexerConfig() (IndexerConfig, error) {
 		RPCURL:                    envOrDefault("SOLANA_RPC_URL", "http://127.0.0.1:8899"),
 		Commitment:                commitment,
 		PollInterval:              pollInterval,
+		RPCMaxRetries:             rpcMaxRetries,
+		RPCRetryBaseDelay:         rpcRetryBaseDelay,
+		RPCRetryMaxDelay:          rpcRetryMaxDelay,
 		DBDSN:                     dbDSN,
 		OrderEngineProgramID:      orderEngineProgramID,
 		MarketRegistryProgramID:   marketRegistryProgramID,

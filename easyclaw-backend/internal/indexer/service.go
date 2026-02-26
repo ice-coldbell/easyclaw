@@ -2,8 +2,10 @@ package indexer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	lpvault "github.com/coldbell/dex/backend/internal/anchor/lp_vault"
@@ -11,6 +13,7 @@ import (
 	"github.com/coldbell/dex/backend/internal/config"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 )
 
 type Service struct {
@@ -388,7 +391,7 @@ func (s *Service) scanAndStore(
 	discriminator [8]byte,
 	handler func(item *rpc.KeyedAccount) error,
 ) error {
-	accounts, err := s.rpc.GetProgramAccountsWithOpts(ctx, programID, &rpc.GetProgramAccountsOpts{
+	accounts, err := s.getProgramAccountsWithRetry(ctx, programID, accountType, &rpc.GetProgramAccountsOpts{
 		Commitment: s.cfg.Commitment,
 		Filters: []rpc.RPCFilter{
 			{Memcmp: &rpc.RPCFilterMemcmp{Offset: 0, Bytes: solana.Base58(discriminator[:])}},
@@ -413,4 +416,69 @@ func (s *Service) scanAndStore(
 		}
 	}
 	return nil
+}
+
+func (s *Service) getProgramAccountsWithRetry(
+	ctx context.Context,
+	programID solana.PublicKey,
+	accountType string,
+	opts *rpc.GetProgramAccountsOpts,
+) ([]*rpc.KeyedAccount, error) {
+	retryDelay := s.cfg.RPCRetryBaseDelay
+
+	for attempt := 1; attempt <= s.cfg.RPCMaxRetries; attempt++ {
+		accounts, err := s.rpc.GetProgramAccountsWithOpts(ctx, programID, opts)
+		if err == nil {
+			return accounts, nil
+		}
+
+		if !isRPCRateLimited(err) || attempt == s.cfg.RPCMaxRetries {
+			return nil, err
+		}
+
+		waitFor := retryDelay
+		if waitFor > s.cfg.RPCRetryMaxDelay {
+			waitFor = s.cfg.RPCRetryMaxDelay
+		}
+
+		s.logger.Warn(
+			"solana rpc rate limited; retrying scan",
+			"program", programID,
+			"account_type", accountType,
+			"attempt", attempt,
+			"max_attempts", s.cfg.RPCMaxRetries,
+			"retry_in", waitFor.String(),
+			"err", err,
+		)
+
+		timer := time.NewTimer(waitFor)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+
+		retryDelay *= 2
+		if retryDelay > s.cfg.RPCRetryMaxDelay {
+			retryDelay = s.cfg.RPCRetryMaxDelay
+		}
+	}
+
+	return nil, fmt.Errorf("scan %s accounts for program %s: exhausted retries", accountType, programID)
+}
+
+func isRPCRateLimited(err error) bool {
+	var rpcErr *jsonrpc.RPCError
+	if errors.As(err, &rpcErr) {
+		if rpcErr.Code == 429 {
+			return true
+		}
+		return strings.Contains(strings.ToLower(rpcErr.Message), "too many requests")
+	}
+
+	errText := strings.ToLower(err.Error())
+	return strings.Contains(errText, "too many requests") || strings.Contains(errText, "code: (int) 429")
 }

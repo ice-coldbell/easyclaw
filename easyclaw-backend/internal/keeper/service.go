@@ -20,11 +20,13 @@ import (
 	"github.com/gagliardetto/solana-go"
 	computebudget "github.com/gagliardetto/solana-go/programs/compute-budget"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 )
 
 const (
-	priceScale = uint64(1_000_000)
-	bpsDenom   = uint64(10_000)
+	priceScale        = uint64(1_000_000)
+	bpsDenom          = uint64(10_000)
+	maxRPCScanRetries = 6
 )
 
 var (
@@ -321,7 +323,7 @@ func (s *Service) loadRuntimeAccounts(ctx context.Context) (*runtimeAccounts, er
 }
 
 func (s *Service) fetchOpenOrders(ctx context.Context) ([]openOrder, error) {
-	orders, err := s.rpc.GetProgramAccountsWithOpts(ctx, s.cfg.OrderEngineProgramID, &rpc.GetProgramAccountsOpts{
+	orders, err := s.getProgramAccountsWithRetry(ctx, s.cfg.OrderEngineProgramID, &rpc.GetProgramAccountsOpts{
 		Commitment: s.cfg.Commitment,
 		Filters: []rpc.RPCFilter{
 			{Memcmp: &rpc.RPCFilterMemcmp{Offset: 0, Bytes: solana.Base58(orderengine.Account_Order[:])}},
@@ -348,6 +350,68 @@ func (s *Service) fetchOpenOrders(ctx context.Context) ([]openOrder, error) {
 	}
 
 	return openOrders, nil
+}
+
+func (s *Service) getProgramAccountsWithRetry(
+	ctx context.Context,
+	programID solana.PublicKey,
+	opts *rpc.GetProgramAccountsOpts,
+) ([]*rpc.KeyedAccount, error) {
+	retryDelay := time.Second
+	maxRetryDelay := 16 * time.Second
+
+	for attempt := 1; attempt <= maxRPCScanRetries; attempt++ {
+		accounts, err := s.rpc.GetProgramAccountsWithOpts(ctx, programID, opts)
+		if err == nil {
+			return accounts, nil
+		}
+		if !isRPCRateLimited(err) || attempt == maxRPCScanRetries {
+			return nil, err
+		}
+
+		waitFor := retryDelay
+		if waitFor > maxRetryDelay {
+			waitFor = maxRetryDelay
+		}
+		s.logger.Warn(
+			"solana rpc rate limited; retrying keeper scan",
+			"program", programID,
+			"attempt", attempt,
+			"max_attempts", maxRPCScanRetries,
+			"retry_in", waitFor.String(),
+			"err", err,
+		)
+
+		timer := time.NewTimer(waitFor)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+
+		retryDelay *= 2
+		if retryDelay > maxRetryDelay {
+			retryDelay = maxRetryDelay
+		}
+	}
+
+	return nil, fmt.Errorf("getProgramAccounts exhausted retries for %s", programID)
+}
+
+func isRPCRateLimited(err error) bool {
+	var rpcErr *jsonrpc.RPCError
+	if errors.As(err, &rpcErr) {
+		if rpcErr.Code == 429 {
+			return true
+		}
+		return strings.Contains(strings.ToLower(rpcErr.Message), "too many requests")
+	}
+
+	errText := strings.ToLower(err.Error())
+	return strings.Contains(errText, "too many requests") || strings.Contains(errText, "code: (int) 429")
 }
 
 func (s *Service) processOrder(ctx context.Context, runtime *runtimeAccounts, candidate openOrder) error {
