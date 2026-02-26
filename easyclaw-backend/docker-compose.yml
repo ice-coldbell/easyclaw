@@ -6,11 +6,11 @@ services:
       context: .
       dockerfile: Dockerfile
     image: easyclaw-backend:local
-    command: ["/app/bin/api-server"]
+    command: ["api-server"]
     environment:
       CONFIG_PHASE: docker
     ports:
-      - "8080:8080"
+      - "9998:8080"
     volumes:
       - ./config:/app/config:ro
       - ./.docker/api-server:/app/.docker/api-server
@@ -18,8 +18,11 @@ services:
       - "host.docker.internal:host-gateway"
 
   indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: easyclaw-backend:local
-    command: ["/app/bin/indexer"]
+    command: ["indexer"]
     environment:
       CONFIG_PHASE: docker
     volumes:
@@ -29,8 +32,11 @@ services:
       - "host.docker.internal:host-gateway"
 
   keeper:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: easyclaw-backend:local
-    command: ["/app/bin/keeper"]
+    command: ["keeper"]
     environment:
       CONFIG_PHASE: docker
     volumes:

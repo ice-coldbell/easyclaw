@@ -1,21 +1,34 @@
-FROM golang:1.26.0 AS builder
+ARG GOLANG_VERSION=1.26
 
-WORKDIR /src
-
-COPY go.mod go.sum ./
-RUN go mod download
-
+FROM golang:${GOLANG_VERSION}-alpine AS builder
+WORKDIR /app
 COPY . .
+RUN go mod download && go mod verify
+RUN go build -o ./api-server ./cmd/api-server
+RUN go build -o ./indexer ./cmd/indexer
+RUN go build -o ./keeper ./cmd/keeper
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/api-server ./cmd/api-server
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/indexer ./cmd/indexer
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/keeper ./cmd/keeper
+ARG RELEASE
+ENV RELEASE=${RELEASE}
 
-FROM gcr.io/distroless/base-debian12
+ARG GIT_SHA1
+ENV GIT_SHA1=${GIT_SHA1}
 
+ARG GIT_REVISION
+ENV GIT_REVISION=${GIT_REVISION}
+
+FROM alpine
 WORKDIR /app
 
-COPY --from=builder /out/ /app/bin/
-COPY config /app/config
+RUN apk update
+RUN apk add --no-cache tzdata curl
 
-CMD ["/app/bin/api-server"]
+RUN cp /usr/share/zoneinfo/UTC /etc/localtime
+RUN echo "UTC" > /etc/timezone
+
+COPY --from=builder /app/api-server /app/api-server
+COPY --from=builder /app/indexer /app/indexer
+COPY --from=builder /app/keeper /app/keeper
+
+COPY ./entrypoint.sh /app/
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]
